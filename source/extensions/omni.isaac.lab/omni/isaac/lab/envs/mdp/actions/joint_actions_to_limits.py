@@ -201,8 +201,17 @@ class EMAJointPositionToLimitsAction(JointPositionToLimitsAction):
             env_ids = slice(None)
         else:
             env_ids = env_ids[:, None]
+        print(f"a   env_ids: {env_ids}")
+        print(f"1   prev_applied_action: {self._prev_applied_actions.shape}")
         super().reset(env_ids)
+        print(f"b   env_ids: {env_ids}")
+        print(f"2   prev_applied_action: {self._prev_applied_actions.shape}")
         # reset history to current joint positions
+        # self._prev_applied_actions[env_ids, :] = self._asset.data.joint_pos[env_ids[:, None], self._joint_ids]
+        print(f"c   env_ids: {env_ids}")
+        print(f"3   prev_applied_action: {self._prev_applied_actions.shape}")
+
+        print(f"AAAA   self._prev_applied_actions[env_ids, :]: {self._prev_applied_actions[env_ids, :].shape}")
         self._prev_applied_actions[env_ids, :] = self._asset.data.joint_pos[env_ids, self._joint_ids]
 
     def process_actions(self, actions: torch.Tensor):
