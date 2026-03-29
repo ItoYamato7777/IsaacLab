@@ -3,16 +3,15 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Configuration for the Kuka-lbr-iiwa arm robots and Allegro Hand.
+"""Configuration for the NextageOpen robot.
 
 The following configurations are available:
 
-* :obj:`KUKA_ALLEGRO_CFG`: Kuka Allegro with implicit actuator model.
+* :obj:`NEXTAGE_CFG`: Nextage Open with implicit actuator model.
 
 Reference:
 
-* https://www.kuka.com/en-us/products/robotics-systems/industrial-robots/lbr-iiwa
-* https://www.wonikrobotics.com/robot-hand
+* http://nextage.kawada.jp/en/
 
 """
 
@@ -35,7 +34,7 @@ NEXTAGE_CFG = ArticulationCfg(
             angular_damping=0.0,
             max_linear_velocity=1000.0,
             max_angular_velocity=1000.0,
-            max_depenetration_velocity=1000.0,
+            max_depenetration_velocity=10.0,
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=True,
@@ -50,64 +49,52 @@ NEXTAGE_CFG = ArticulationCfg(
         pos=(0.0, 0.0, 0.0),
         rot=(1.0, 0.0, 0.0, 0.0),
         joint_pos={
-            "iiwa7_joint_(1|2|7)": 0.0,
-            "iiwa7_joint_3": 0.7854,
-            "iiwa7_joint_4": 1.5708,
-            "iiwa7_joint_(5|6)": -1.5708,
-            "(index|middle|ring)_joint_0": 0.0,
-            "(index|middle|ring)_joint_1": 0.3,
-            "(index|middle|ring)_joint_2": 0.3,
-            "(index|middle|ring)_joint_3": 0.3,
-            "thumb_joint_0": 1.5,
-            "thumb_joint_1": 0.60147215,
-            "thumb_joint_2": 0.33795027,
-            "thumb_joint_3": 0.60845138,
+            "(CHEST|HEAD|LARM|RARM)_JOINT.*": 0.0,
         },
     ),
     actuators={
-        "kuka_allegro_actuators": ImplicitActuatorCfg(
+        "nextage_actuators": ImplicitActuatorCfg(
             joint_names_expr=[
-                "iiwa7_joint_(1|2|3|4|5|6|7)",
-                "index_joint_(0|1|2|3)",
-                "middle_joint_(0|1|2|3)",
-                "ring_joint_(0|1|2|3)",
-                "thumb_joint_(0|1|2|3)",
+                "CHEST_JOINT0",
+                "HEAD_JOINT(0|1)",
+                "LARM_JOINT(0|1|2|3|4|5)",
+                "RARM_JOINT(0|1|2|3|4|5)",
             ],
             effort_limit_sim={
-                "iiwa7_joint_(1|2|3|4|5|6|7)": 300.0,
-                "index_joint_(0|1|2|3)": 0.5,
-                "middle_joint_(0|1|2|3)": 0.5,
-                "ring_joint_(0|1|2|3)": 0.5,
-                "thumb_joint_(0|1|2|3)": 0.5,
+                "CHEST_JOINT0": 100.0,
+                "HEAD_JOINT(0|1)": 100.0,
+                "LARM_JOINT0": 150.0,
+                "LARM_JOINT1": 200.0,
+                "LARM_JOINT[2-5]": 100.0,
+                "RARM_JOINT0": 150.0,
+                "RARM_JOINT1": 200.0,
+                "RARM_JOINT[2-5]": 100.0,
             },
             stiffness={
-                "iiwa7_joint_(1|2|3|4)": 300.0,
-                "iiwa7_joint_5": 100.0,
-                "iiwa7_joint_6": 50.0,
-                "iiwa7_joint_7": 25.0,
-                "index_joint_(0|1|2|3)": 3.0,
-                "middle_joint_(0|1|2|3)": 3.0,
-                "ring_joint_(0|1|2|3)": 3.0,
-                "thumb_joint_(0|1|2|3)": 3.0,
+                "CHEST_JOINT0": 400.0,
+                "HEAD_JOINT(0|1)": 100.0,
+                "LARM_JOINT[0-1]": 400.0,
+                "LARM_JOINT[2-3]": 300.0,
+                "LARM_JOINT[4-5]": 100.0,
+                "RARM_JOINT[0-1]": 400.0,
+                "RARM_JOINT[2-3]": 300.0,
+                "RARM_JOINT[4-5]": 100.0,
             },
             damping={
-                "iiwa7_joint_(1|2|3|4)": 45.0,
-                "iiwa7_joint_5": 20.0,
-                "iiwa7_joint_6": 15.0,
-                "iiwa7_joint_7": 15.0,
-                "index_joint_(0|1|2|3)": 0.1,
-                "middle_joint_(0|1|2|3)": 0.1,
-                "ring_joint_(0|1|2|3)": 0.1,
-                "thumb_joint_(0|1|2|3)": 0.1,
+                "CHEST_JOINT0": 40.0,
+                "HEAD_JOINT(0|1)": 10.0,
+                "LARM_JOINT[0-1]": 40.0,
+                "LARM_JOINT[2-3]": 30.0,
+                "LARM_JOINT[4-5]": 10.0,
+                "RARM_JOINT[0-1]": 40.0,
+                "RARM_JOINT[2-3]": 30.0,
+                "RARM_JOINT[4-5]": 10.0,
             },
             friction={
-                "iiwa7_joint_(1|2|3|4|5|6|7)": 1.0,
-                "index_joint_(0|1|2|3)": 0.01,
-                "middle_joint_(0|1|2|3)": 0.01,
-                "ring_joint_(0|1|2|3)": 0.01,
-                "thumb_joint_(0|1|2|3)": 0.01,
+                "(CHEST|HEAD|LARM|RARM)_JOINT.*": 0.01,
             },
         ),
     },
     soft_joint_pos_limit_factor=1.0,
 )
+
