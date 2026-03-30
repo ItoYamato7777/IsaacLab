@@ -224,23 +224,23 @@ class EventCfg:
         },
     )
 
-    log_joint_positions = EventTerm(
-        func=mdp.log_joint_positions,
-        mode="interval",
-        interval_range_s=(1.0 / 30.0, 1.0 / 30.0),
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=[
-                    "CHEST_JOINT0",
-                    "HEAD_JOINT(0|1)",
-                    "LARM_JOINT.*",
-                    "RARM_JOINT.*",
-                ],
-            ),
-            "precision": 4,
-        },
-    )
+    # log_joint_positions = EventTerm(
+    #     func=mdp.log_joint_positions,
+    #     mode="interval",
+    #     interval_range_s=(1.0 / 30.0, 1.0 / 30.0),
+    #     params={
+    #         "asset_cfg": SceneEntityCfg(
+    #             "robot",
+    #             joint_names=[
+    #                 "CHEST_JOINT0",
+    #                 "HEAD_JOINT(0|1)",
+    #                 "LARM_JOINT.*",
+    #                 "RARM_JOINT.*",
+    #             ],
+    #         ),
+    #         "precision": 4,
+    #     },
+    # )
 
 
 @configclass
