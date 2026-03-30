@@ -26,7 +26,7 @@ from isaaclab.assets.articulation import ArticulationCfg
 NEXTAGE_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path="/home/itoyama/work/IsaacLab/source/isaaclab_assets/isaaclab_assets/robots/NextageOpen.usd",
-        activate_contact_sensors=True,
+        activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=True,
             retain_accelerations=True,
@@ -97,4 +97,3 @@ NEXTAGE_CFG = ArticulationCfg(
     },
     soft_joint_pos_limit_factor=1.0,
 )
-
