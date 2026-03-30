@@ -20,28 +20,28 @@ from isaaclab_assets.robots.nextage_open import NEXTAGE_CFG
 
 
 @configclass
-class OpenArmReachEnvCfg(ReachEnvCfg):
-    """Configuration for the Bimanual OpenArm Reach Environment."""
+class NextageReachEnvCfg(ReachEnvCfg):
+    """Configuration for the bimanual Nextage reach environment."""
 
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
 
-        # switch robot to OpenArm
+        # switch robot to Nextage
         self.scene.robot = NEXTAGE_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
         # override rewards
-        self.rewards.left_end_effector_position_tracking.params["asset_cfg"].body_names = ["LARM"]
+        self.rewards.left_end_effector_position_tracking.params["asset_cfg"].body_names = ["LARM_JOINT5_Link"]
         self.rewards.left_end_effector_position_tracking_fine_grained.params["asset_cfg"].body_names = [
-            "LARM"
+            "LARM_JOINT5_Link"
         ]
-        self.rewards.left_end_effector_orientation_tracking.params["asset_cfg"].body_names = ["LARM"]
+        self.rewards.left_end_effector_orientation_tracking.params["asset_cfg"].body_names = ["LARM_JOINT5_Link"]
 
-        self.rewards.right_end_effector_position_tracking.params["asset_cfg"].body_names = ["RARM"]
+        self.rewards.right_end_effector_position_tracking.params["asset_cfg"].body_names = ["RARM_JOINT5_Link"]
         self.rewards.right_end_effector_position_tracking_fine_grained.params["asset_cfg"].body_names = [
-            "RARM"
+            "RARM_JOINT5_Link"
         ]
-        self.rewards.right_end_effector_orientation_tracking.params["asset_cfg"].body_names = ["RARM"]
+        self.rewards.right_end_effector_orientation_tracking.params["asset_cfg"].body_names = ["RARM_JOINT5_Link"]
 
         # override actions
         self.actions.left_arm_action = mdp.JointPositionActionCfg(
@@ -64,12 +64,12 @@ class OpenArmReachEnvCfg(ReachEnvCfg):
 
         # override command generator body
         # end-effector is along z-direction
-        self.commands.left_ee_pose.body_name = "LARM_END_EFFECTOR"
-        self.commands.right_ee_pose.body_name = "RARM_END_EFFECTOR"
+        self.commands.left_ee_pose.body_name = "LARM_JOINT5_Link"
+        self.commands.right_ee_pose.body_name = "RARM_JOINT5_Link"
 
 
 @configclass
-class OpenArmReachEnvCfg_PLAY(OpenArmReachEnvCfg):
+class NextageReachEnvCfg_PLAY(NextageReachEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
@@ -78,3 +78,8 @@ class OpenArmReachEnvCfg_PLAY(OpenArmReachEnvCfg):
         self.scene.env_spacing = 2.5
         # disable randomization for play
         self.observations.policy.enable_corruption = False
+
+
+# Backward-compatible aliases
+OpenArmReachEnvCfg = NextageReachEnvCfg
+OpenArmReachEnvCfg_PLAY = NextageReachEnvCfg_PLAY

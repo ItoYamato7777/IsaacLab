@@ -17,6 +17,37 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
 
+def log_joint_positions(
+    env: ManagerBasedRLEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    precision: int = 4,
+) -> None:
+    """Print joint positions for the first selected environment.
+
+    This utility is intended for debug logging through an ``EventTerm`` in ``interval`` mode.
+    """
+    if env_ids.numel() == 0:
+        return
+
+    asset: RigidObject = env.scene[asset_cfg.name]
+    env_id = int(env_ids[0].item())
+    joint_ids = asset_cfg.joint_ids
+
+    if joint_ids is None:
+        joint_positions = asset.data.joint_pos[env_id]
+        joint_names = asset.joint_names
+    else:
+        joint_positions = asset.data.joint_pos[env_id, joint_ids]
+        joint_names = [asset.joint_names[joint_id] for joint_id in joint_ids]
+
+    joint_values = joint_positions.detach().cpu().tolist()
+    log_message = ", ".join(
+        f"{joint_name}={joint_value:.{precision}f}" for joint_name, joint_value in zip(joint_names, joint_values)
+    )
+    print(f"[NextageJointPos][env={env_id}] {log_message}")
+
+
 def position_command_error(env: ManagerBasedRLEnv, command_name: str, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     """Penalize tracking of the position error using L2-norm.
 

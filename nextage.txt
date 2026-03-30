@@ -1,0 +1,79 @@
+USD Path: source/isaaclab_assets/isaaclab_assets/robots/NextageOpen.usd
+Root Layer: source/isaaclab_assets/isaaclab_assets/robots/NextageOpen.usd
+Format: usd
+Default Prim: /NextageOpen
+Start/End TimeCode: 0.0 / 0.0
+SubLayers: []
+------------------------------------------------------------------------------------------
+Prim Hierarchy
+------------------------------------------------------------------------------------------
+/NextageOpen | type=Xform | active=True
+/NextageOpen/WAIST | type=Xform | active=True
+/NextageOpen/WAIST/visuals | type=Xform | active=True
+/NextageOpen/WAIST/collisions | type=Xform | active=True
+/NextageOpen/CHEST_JOINT0_Link | type=Xform | active=True
+/NextageOpen/CHEST_JOINT0_Link/visuals | type=Xform | active=True
+/NextageOpen/CHEST_JOINT0_Link/collisions | type=Xform | active=True
+/NextageOpen/joints | type=Scope | active=True
+/NextageOpen/joints/CHEST_JOINT0 | type=PhysicsRevoluteJoint | active=True | axis=Z | limit=[-163.00018310546875, 163.00018310546875]
+/NextageOpen/joints/HEAD_JOINT0 | type=PhysicsRevoluteJoint | active=True | axis=Z | limit=[-69.99996948242188, 69.99996948242188]
+/NextageOpen/joints/HEAD_JOINT1 | type=PhysicsRevoluteJoint | active=True | axis=Y | limit=[-20.00000762939453, 69.99996948242188]
+/NextageOpen/joints/LARM_JOINT0 | type=PhysicsRevoluteJoint | active=True | axis=Z | limit=[-88.00000762939453, 88.00000762939453]
+/NextageOpen/joints/LARM_JOINT1 | type=PhysicsRevoluteJoint | active=True | axis=Y | limit=[-139.99993896484375, 60.0001335144043]
+/NextageOpen/joints/LARM_JOINT2 | type=PhysicsRevoluteJoint | active=True | axis=Y | limit=[-157.99998474121094, 0.0]
+/NextageOpen/joints/LARM_JOINT3 | type=PhysicsRevoluteJoint | active=True | axis=Z | limit=[-105.00023651123047, 164.9998016357422]
+/NextageOpen/joints/LARM_JOINT4 | type=PhysicsRevoluteJoint | active=True | axis=Y | limit=[-100.00003814697266, 100.00003814697266]
+/NextageOpen/joints/LARM_JOINT5 | type=PhysicsRevoluteJoint | active=True | axis=X | limit=[-163.00018310546875, 163.00018310546875]
+/NextageOpen/joints/RARM_JOINT0 | type=PhysicsRevoluteJoint | active=True | axis=Z | limit=[-88.00000762939453, 88.00000762939453]
+/NextageOpen/joints/RARM_JOINT1 | type=PhysicsRevoluteJoint | active=True | axis=Y | limit=[-139.99993896484375, 60.0001335144043]
+/NextageOpen/joints/RARM_JOINT2 | type=PhysicsRevoluteJoint | active=True | axis=Y | limit=[-157.99998474121094, 0.0]
+/NextageOpen/joints/RARM_JOINT3 | type=PhysicsRevoluteJoint | active=True | axis=Z | limit=[-164.9998016357422, 105.00023651123047]
+/NextageOpen/joints/RARM_JOINT4 | type=PhysicsRevoluteJoint | active=True | axis=Y | limit=[-100.00003814697266, 100.00003814697266]
+/NextageOpen/joints/RARM_JOINT5 | type=PhysicsRevoluteJoint | active=True | axis=X | limit=[-163.00018310546875, 163.00018310546875]
+/NextageOpen/HEAD_JOINT0_Link | type=Xform | active=True
+/NextageOpen/HEAD_JOINT0_Link/visuals | type=Xform | active=True
+/NextageOpen/HEAD_JOINT0_Link/collisions | type=Xform | active=True
+/NextageOpen/HEAD_JOINT1_Link | type=Xform | active=True
+/NextageOpen/HEAD_JOINT1_Link/visuals | type=Xform | active=True
+/NextageOpen/HEAD_JOINT1_Link/collisions | type=Xform | active=True
+/NextageOpen/LARM_JOINT0_Link | type=Xform | active=True
+/NextageOpen/LARM_JOINT0_Link/visuals | type=Xform | active=True
+/NextageOpen/LARM_JOINT0_Link/collisions | type=Xform | active=True
+/NextageOpen/LARM_JOINT1_Link | type=Xform | active=True
+/NextageOpen/LARM_JOINT1_Link/visuals | type=Xform | active=True
+/NextageOpen/LARM_JOINT1_Link/collisions | type=Xform | active=True
+/NextageOpen/LARM_JOINT2_Link | type=Xform | active=True
+/NextageOpen/LARM_JOINT2_Link/visuals | type=Xform | active=True
+/NextageOpen/LARM_JOINT2_Link/collisions | type=Xform | active=True
+/NextageOpen/LARM_JOINT3_Link | type=Xform | active=True
+/NextageOpen/LARM_JOINT3_Link/visuals | type=Xform | active=True
+/NextageOpen/LARM_JOINT3_Link/collisions | type=Xform | active=True
+/NextageOpen/LARM_JOINT4_Link | type=Xform | active=True
+/NextageOpen/LARM_JOINT4_Link/visuals | type=Xform | active=True
+/NextageOpen/LARM_JOINT4_Link/collisions | type=Xform | active=True
+/NextageOpen/LARM_JOINT5_Link | type=Xform | active=True
+/NextageOpen/LARM_JOINT5_Link/visuals | type=Xform | active=True
+/NextageOpen/LARM_JOINT5_Link/collisions | type=Xform | active=True
+/NextageOpen/RARM_JOINT0_Link | type=Xform | active=True
+/NextageOpen/RARM_JOINT0_Link/visuals | type=Xform | active=True
+/NextageOpen/RARM_JOINT0_Link/collisions | type=Xform | active=True
+/NextageOpen/RARM_JOINT1_Link | type=Xform | active=True
+/NextageOpen/RARM_JOINT1_Link/visuals | type=Xform | active=True
+/NextageOpen/RARM_JOINT1_Link/collisions | type=Xform | active=True
+/NextageOpen/RARM_JOINT2_Link | type=Xform | active=True
+/NextageOpen/RARM_JOINT2_Link/visuals | type=Xform | active=True
+/NextageOpen/RARM_JOINT2_Link/collisions | type=Xform | active=True
+/NextageOpen/RARM_JOINT3_Link | type=Xform | active=True
+/NextageOpen/RARM_JOINT3_Link/visuals | type=Xform | active=True
+/NextageOpen/RARM_JOINT3_Link/collisions | type=Xform | active=True
+/NextageOpen/RARM_JOINT4_Link | type=Xform | active=True
+/NextageOpen/RARM_JOINT4_Link/visuals | type=Xform | active=True
+/NextageOpen/RARM_JOINT4_Link/collisions | type=Xform | active=True
+/NextageOpen/RARM_JOINT5_Link | type=Xform | active=True
+/NextageOpen/RARM_JOINT5_Link/visuals | type=Xform | active=True
+/NextageOpen/RARM_JOINT5_Link/collisions | type=Xform | active=True
+/NextageOpen/Looks | type=Scope | active=True
+/NextageOpen/root_joint | type=PhysicsFixedJoint | active=True | joint=fixed
+------------------------------------------------------------------------------------------
+prim_count=67
+joint_count=16

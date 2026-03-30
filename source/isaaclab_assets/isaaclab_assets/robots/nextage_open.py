@@ -15,6 +15,8 @@ Reference:
 
 """
 
+from pathlib import Path
+
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
@@ -25,7 +27,7 @@ from isaaclab.assets.articulation import ArticulationCfg
 
 NEXTAGE_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path="/home/itoyama/work/IsaacLab/source/isaaclab_assets/isaaclab_assets/robots/NextageOpen.usd",
+        usd_path=str(Path(__file__).resolve().parent / "NextageOpen.usd"),
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=True,
@@ -46,7 +48,7 @@ NEXTAGE_CFG = ArticulationCfg(
         joint_drive_props=sim_utils.JointDrivePropertiesCfg(drive_type="force"),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.0),
+        pos=(0.0, 0.0, 0.35),
         rot=(1.0, 0.0, 0.0, 0.0),
         joint_pos={
             "(CHEST|HEAD|LARM|RARM)_JOINT.*": 0.0,

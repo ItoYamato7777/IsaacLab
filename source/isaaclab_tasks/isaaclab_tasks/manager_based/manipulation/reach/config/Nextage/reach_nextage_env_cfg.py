@@ -68,9 +68,9 @@ class CommandsCfg:
         resampling_time_range=(4.0, 4.0),
         debug_vis=True,
         ranges=mdp.UniformPoseCommandCfg.Ranges(
-            pos_x=(0.15, 0.3),
-            pos_y=(0.15, 0.25),
-            pos_z=(0.3, 0.5),
+            pos_x=(0.3, 0.5),
+            pos_y=(0.1, 0.25),
+            pos_z=(0.1, 0.3),
             roll=(-math.pi / 6, math.pi / 6),
             pitch=(3 * math.pi / 2, 3 * math.pi / 2),
             yaw=(8 * math.pi / 9, 10 * math.pi / 9),
@@ -177,12 +177,68 @@ class ObservationsCfg:
 class EventCfg:
     """Configuration for events."""
 
+    clamp_chest_joint_limits = EventTerm(
+        func=mdp.randomize_joint_parameters,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=["CHEST_JOINT0"],
+            ),
+            "lower_limit_distribution_params": (0.01, -0.01),
+            "upper_limit_distribution_params": (0.01, 0.01),
+            "operation": "abs",
+            "distribution": "uniform",
+        },
+    )
+
     reset_robot_joints = EventTerm(
         func=mdp.reset_joints_by_scale,
         mode="reset",
         params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    "LARM.*",
+                    "RARM.*",
+                ],
+            ),
             "position_range": (0.5, 1.5),
             "velocity_range": (0.0, 0.0),
+        },
+    )
+
+    reset_torso_head_joints = EventTerm(
+        func=mdp.reset_joints_by_offset,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    "CHEST_JOINT0",
+                    "HEAD_JOINT(0|1)",
+                ],
+            ),
+            "position_range": (0.0, 0.0),
+            "velocity_range": (0.0, 0.0),
+        },
+    )
+
+    log_joint_positions = EventTerm(
+        func=mdp.log_joint_positions,
+        mode="interval",
+        interval_range_s=(1.0 / 30.0, 1.0 / 30.0),
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    "CHEST_JOINT0",
+                    "HEAD_JOINT(0|1)",
+                    "LARM_JOINT.*",
+                    "RARM_JOINT.*",
+                ],
+            ),
+            "precision": 4,
         },
     )
 
@@ -203,7 +259,7 @@ class RewardsCfg:
 
     right_end_effector_position_tracking = RewTerm(
         func=mdp.position_command_error,
-        weight=-0.25,
+        weight=-0.2,
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=MISSING),
             "command_name": "right_ee_pose",
@@ -222,7 +278,7 @@ class RewardsCfg:
 
     right_end_effector_position_tracking_fine_grained = RewTerm(
         func=mdp.position_command_error_tanh,
-        weight=0.2,
+        weight=0.1,
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=MISSING),
             "std": 0.1,
@@ -271,6 +327,28 @@ class RewardsCfg:
                 joint_names=[
                     "RARM.*",
                 ],
+            )
+        },
+    )
+
+    chest_joint_deviation = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.2,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=["CHEST_JOINT0"],
+            )
+        },
+    )
+
+    chest_joint_vel = RewTerm(
+        func=mdp.joint_vel_l2,
+        weight=-0.001,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=["CHEST_JOINT0"],
             )
         },
     )
@@ -333,3 +411,5 @@ class ReachEnvCfg(ManagerBasedRLEnvCfg):
         self.viewer.eye = (3.5, 3.5, 3.5)
         # simulation settings
         self.sim.dt = 1.0 / 60.0
+        # step_dt = self.sim.dt * self.decimation
+        # self.events.log_joint_positions.interval_range_s = (step_dt, step_dt)
