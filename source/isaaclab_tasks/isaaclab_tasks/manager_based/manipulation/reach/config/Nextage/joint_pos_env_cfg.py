@@ -49,7 +49,7 @@ class NextageReachEnvCfg(ReachEnvCfg):
             joint_names=[
                 "LARM.*",
             ],
-            scale=0.5,
+            scale=1.0,
             use_default_offset=True,
         )
 
@@ -58,7 +58,7 @@ class NextageReachEnvCfg(ReachEnvCfg):
             joint_names=[
                 "RARM.*",
             ],
-            scale=0.5,
+            scale=1.0,
             use_default_offset=True,
         )
 

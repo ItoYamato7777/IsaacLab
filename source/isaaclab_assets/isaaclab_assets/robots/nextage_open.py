@@ -26,26 +26,23 @@ from isaaclab.assets.articulation import ArticulationCfg
 ##
 
 NEXTAGE_CFG = ArticulationCfg(
-    spawn=sim_utils.UsdFileCfg(
-        usd_path=str(Path(__file__).resolve().parent / "NextageOpen.usd"),
-        activate_contact_sensors=False,
+    spawn=sim_utils.UrdfFileCfg(
+        fix_base=True,
+        replace_cylinders_with_capsules=True,
+        asset_path=str(Path(__file__).resolve().parent / "NextageOpen.urdf"),
+        activate_contact_sensors=False, # set as false while waiting for capsule implementation
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
-            disable_gravity=True,
-            retain_accelerations=True,
-            linear_damping=0.0,
-            angular_damping=0.0,
-            max_linear_velocity=1000.0,
-            max_angular_velocity=1000.0,
-            max_depenetration_velocity=10.0,
+            disable_gravity=False,
+            max_depenetration_velocity=5.0,
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=True,
-            solver_position_iteration_count=32,
-            solver_velocity_iteration_count=1,
-            sleep_threshold=0.005,
-            stabilization_threshold=0.0005,
+            solver_position_iteration_count=8,
+            solver_velocity_iteration_count=0,
         ),
-        joint_drive_props=sim_utils.JointDrivePropertiesCfg(drive_type="force"),
+        joint_drive=sim_utils.UrdfConverterCfg.JointDriveCfg(
+            gains=sim_utils.UrdfConverterCfg.JointDriveCfg.PDGainsCfg(stiffness=0, damping=0)
+        ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 0.35),
@@ -74,13 +71,13 @@ NEXTAGE_CFG = ArticulationCfg(
             },
             stiffness={
                 "CHEST_JOINT0": 400.0,
-                "HEAD_JOINT(0|1)": 100.0,
-                "LARM_JOINT[0-1]": 400.0,
-                "LARM_JOINT[2-3]": 300.0,
-                "LARM_JOINT[4-5]": 100.0,
-                "RARM_JOINT[0-1]": 400.0,
-                "RARM_JOINT[2-3]": 300.0,
-                "RARM_JOINT[4-5]": 100.0,
+                "HEAD_JOINT(0|1)": 10.0,
+                "LARM_JOINT[0-1]": 40.0,
+                "LARM_JOINT[2-3]": 30.0,
+                "LARM_JOINT[4-5]": 10.0,
+                "RARM_JOINT[0-1]": 40.0,
+                "RARM_JOINT[2-3]": 30.0,
+                "RARM_JOINT[4-5]": 10.0,
             },
             damping={
                 "CHEST_JOINT0": 40.0,

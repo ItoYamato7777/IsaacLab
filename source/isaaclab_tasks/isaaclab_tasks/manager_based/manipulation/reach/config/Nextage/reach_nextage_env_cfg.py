@@ -177,20 +177,20 @@ class ObservationsCfg:
 class EventCfg:
     """Configuration for events."""
 
-    clamp_chest_joint_limits = EventTerm(
-        func=mdp.randomize_joint_parameters,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=["CHEST_JOINT0"],
-            ),
-            "lower_limit_distribution_params": (0.01, -0.01),
-            "upper_limit_distribution_params": (0.01, 0.01),
-            "operation": "abs",
-            "distribution": "uniform",
-        },
-    )
+    # clamp_chest_joint_limits = EventTerm(
+    #     func=mdp.randomize_joint_parameters,
+    #     mode="startup",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg(
+    #             "robot",
+    #             joint_names=["CHEST_JOINT0"],
+    #         ),
+    #         "lower_limit_distribution_params": (0.01, -0.01),
+    #         "upper_limit_distribution_params": (0.01, 0.01),
+    #         "operation": "abs",
+    #         "distribution": "uniform",
+    #     },
+    # )
 
     reset_robot_joints = EventTerm(
         func=mdp.reset_joints_by_scale,
