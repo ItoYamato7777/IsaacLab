@@ -70,7 +70,7 @@ class CommandsCfg:
         ranges=mdp.UniformPoseCommandCfg.Ranges(
             pos_x=(0.3, 0.5),
             pos_y=(0.1, 0.25),
-            pos_z=(0.1, 0.3),
+            pos_z=(0.4, 0.6),
             roll=(-math.pi / 6, math.pi / 6),
             pitch=(3 * math.pi / 2, 3 * math.pi / 2),
             yaw=(8 * math.pi / 9, 10 * math.pi / 9),
@@ -85,7 +85,7 @@ class CommandsCfg:
         ranges=mdp.UniformPoseCommandCfg.Ranges(
             pos_x=(0.15, 0.3),
             pos_y=(-0.25, -0.15),
-            pos_z=(0.3, 0.5),
+            pos_z=(0.4, 0.6),
             roll=(-math.pi / 6, math.pi / 6),
             pitch=(3 * math.pi / 2, 3 * math.pi / 2),
             yaw=(8 * math.pi / 9, 10 * math.pi / 9),
@@ -177,21 +177,6 @@ class ObservationsCfg:
 class EventCfg:
     """Configuration for events."""
 
-    # clamp_chest_joint_limits = EventTerm(
-    #     func=mdp.randomize_joint_parameters,
-    #     mode="startup",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg(
-    #             "robot",
-    #             joint_names=["CHEST_JOINT0"],
-    #         ),
-    #         "lower_limit_distribution_params": (0.01, -0.01),
-    #         "upper_limit_distribution_params": (0.01, 0.01),
-    #         "operation": "abs",
-    #         "distribution": "uniform",
-    #     },
-    # )
-
     reset_robot_joints = EventTerm(
         func=mdp.reset_joints_by_scale,
         mode="reset",
@@ -259,7 +244,7 @@ class RewardsCfg:
 
     right_end_effector_position_tracking = RewTerm(
         func=mdp.position_command_error,
-        weight=-0.2,
+        weight=-0.25,
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=MISSING),
             "command_name": "right_ee_pose",
@@ -278,7 +263,7 @@ class RewardsCfg:
 
     right_end_effector_position_tracking_fine_grained = RewTerm(
         func=mdp.position_command_error_tanh,
-        weight=0.1,
+        weight=0.2,
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=MISSING),
             "std": 0.1,
