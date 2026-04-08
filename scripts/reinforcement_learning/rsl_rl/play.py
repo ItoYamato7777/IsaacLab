@@ -9,6 +9,13 @@
 
 import argparse
 import sys
+import json
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import numpy as np
 
 from isaaclab.app import AppLauncher
 
@@ -34,6 +41,9 @@ parser.add_argument(
     help="Use the pre-trained checkpoint from Nucleus.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+parser.add_argument(
+    "--log_json", action="store_true", default=False, help="Log policy inputs and outputs to a JSON file."
+)
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
@@ -58,6 +68,89 @@ import importlib.metadata as metadata
 from packaging import version
 
 installed_version = metadata.version("rsl-rl-lib")
+
+
+class TimeSeriesJsonLogger:
+    def __init__(self, enabled: bool, output_dir: Path | None = None):
+        self.enabled = enabled
+        if not self.enabled:
+            return
+        self.output_dir = (output_dir or Path.cwd() / "logs").resolve()
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.out_path = self.output_dir / f"run_{timestamp}.json"
+        self._wall_start = time.time()
+        self._created_at = datetime.now().isoformat(timespec="seconds")
+        self._record_count = 0
+
+        # Initialize the file with a header
+        with open(self.out_path, "w", encoding="utf-8") as f:
+            f.write(f'{{"created_at": "{self._created_at}", "records": [\n')
+
+        print(f"[INFO] Logging policy data to: {self.out_path}")
+
+    def _to_jsonable(self, value: Any) -> Any:
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        if isinstance(value, (np.float32, np.float64, np.float16)):
+            return float(value)
+        if isinstance(value, (np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64)):
+            return int(value)
+        if isinstance(value, dict):
+            return {k: self._to_jsonable(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self._to_jsonable(v) for v in value]
+        return value
+
+    def record(
+        self,
+        *,
+        step: int,
+        sim_time: float,
+        mode: str,
+        input_data: dict[str, Any],
+        output_data: dict[str, Any],
+    ) -> None:
+        if not self.enabled:
+            return
+
+        def _flatten_if_single_env(val):
+            """Flatten the batch dimension if it is 1."""
+            if isinstance(val, np.ndarray):
+                if val.ndim >= 2 and val.shape[0] == 1:
+                    return val[0]
+            if isinstance(val, dict):
+                return {k: _flatten_if_single_env(v) for k, v in val.items()}
+            return val
+
+        record_data = {
+            "step": step,
+            "sim_time": float(sim_time),
+            "wall_elapsed": time.time() - self._wall_start,
+            "mode": mode,
+            "input": self._to_jsonable(_flatten_if_single_env(input_data)),
+            "output": self._to_jsonable(_flatten_if_single_env(output_data)),
+        }
+
+        # Append the record to the file immediately
+        with open(self.out_path, "a", encoding="utf-8") as f:
+            if self._record_count > 0:
+                f.write(",\n")
+            # Indent each record for better readability
+            json_str = json.dumps(record_data, ensure_ascii=False, indent=2)
+            f.write("    " + json_str.replace("\n", "\n    "))
+
+        self._record_count += 1
+
+    def save(self) -> Path | None:
+        if not self.enabled:
+            return None
+
+        # Finalize the JSON structure
+        with open(self.out_path, "a", encoding="utf-8") as f:
+            f.write(f'\n  ],\n  "record_count": {self._record_count}\n}}')
+
+        return self.out_path
 
 """Rest everything follows."""
 
@@ -195,36 +288,59 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     dt = env.unwrapped.step_dt
 
+    # initialize logger
+    should_log = args_cli.log_json or "Isaac-Reach-Nextage-Play" in args_cli.task
+    logger = TimeSeriesJsonLogger(enabled=should_log, output_dir=Path(log_dir) / "json_logs")
+
     # reset environment
     obs = env.get_observations()
     timestep = 0
     # simulate environment
-    while simulation_app.is_running():
-        start_time = time.time()
-        # run everything in inference mode
-        with torch.inference_mode():
-            # agent stepping
-            actions = policy(obs)
-            # env stepping
-            obs, _, dones, _ = env.step(actions)
-            # reset recurrent states for episodes that have terminated
-            if version.parse(installed_version) >= version.parse("4.0.0"):
-                policy.reset(dones)
-            else:
-                policy_nn.reset(dones)
-        if args_cli.video:
+    try:
+        while simulation_app.is_running():
+            start_time = time.time()
+            # run everything in inference mode
+            with torch.inference_mode():
+                # agent stepping
+                actions = policy(obs)
+
+                # log data
+                if should_log:
+                    print(f"timestep: {timestep}, obs: {obs.shape}, actions: {actions.shape}")
+                    logger.record(
+                        step=timestep,
+                        sim_time=timestep * dt,
+                        mode="play",
+                        input_data={"obs": obs.detach().cpu().numpy()},
+                        output_data={"actions": actions.detach().cpu().numpy()},
+                    )
+
+                # env stepping
+                obs, _, dones, _ = env.step(actions)
+                # reset recurrent states for episodes that have terminated
+                if version.parse(installed_version) >= version.parse("4.0.0"):
+                    policy.reset(dones)
+                else:
+                    policy_nn.reset(dones)
+
             timestep += 1
-            # Exit the play loop after recording one video
-            if timestep == args_cli.video_length:
-                break
+            if args_cli.video:
+                # Exit the play loop after recording one video
+                if timestep == args_cli.video_length:
+                    break
 
-        # time delay for real-time evaluation
-        sleep_time = dt - (time.time() - start_time)
-        if args_cli.real_time and sleep_time > 0:
-            time.sleep(sleep_time)
+            # time delay for real-time evaluation
+            sleep_time = dt - (time.time() - start_time)
+            if args_cli.real_time and sleep_time > 0:
+                time.sleep(sleep_time)
+    finally:
+        # save log
+        if should_log:
+            out_path = logger.save()
+            print(f"[INFO] Saved policy log to: {out_path}")
 
-    # close the simulator
-    env.close()
+        # close the simulator
+        env.close()
 
 
 if __name__ == "__main__":
