@@ -26,24 +26,21 @@ from isaaclab.assets.articulation import ArticulationCfg
 ##
 
 NEXTAGE_CFG = ArticulationCfg(
-    spawn=sim_utils.UrdfFileCfg(
-        fix_base=True,
-        replace_cylinders_with_capsules=True,
-        asset_path=str(Path(__file__).resolve().parent / "NextageOpen.urdf"),
-        activate_contact_sensors=False, # set as false while waiting for capsule implementation
+    spawn=sim_utils.UsdFileCfg(
+        usd_path=str(Path(__file__).resolve().parent / "hiro.usd"),
+        activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
             max_depenetration_velocity=5.0,
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-            enabled_self_collisions=True,
+            enabled_self_collisions=False,
+            fix_root_link=True,
             solver_position_iteration_count=8,
             solver_velocity_iteration_count=0,
         ),
-        joint_drive=sim_utils.UrdfConverterCfg.JointDriveCfg(
-            gains=sim_utils.UrdfConverterCfg.JointDriveCfg.PDGainsCfg(stiffness=0, damping=0)
-        ),
     ),
+    articulation_root_prim_path="/nextage/WAIST/WAIST",
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 0.35),
         rot=(1.0, 0.0, 0.0, 0.0),

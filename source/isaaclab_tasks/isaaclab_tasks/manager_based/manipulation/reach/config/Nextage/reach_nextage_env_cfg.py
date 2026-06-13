@@ -193,21 +193,21 @@ class EventCfg:
         },
     )
 
-    reset_torso_head_joints = EventTerm(
-        func=mdp.reset_joints_by_offset,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=[
-                    "CHEST_JOINT0",
-                    "HEAD_JOINT(0|1)",
-                ],
-            ),
-            "position_range": (0.0, 0.0),
-            "velocity_range": (0.0, 0.0),
-        },
-    )
+    # reset_torso_head_joints = EventTerm(
+    #     func=mdp.reset_joints_by_offset,
+    #     mode="reset",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg(
+    #             "robot",
+    #             joint_names=[
+    #                 "CHEST_JOINT0",
+    #                 "HEAD_JOINT(0|1)",
+    #             ],
+    #         ),
+    #         "position_range": (0.0, 0.0),
+    #         "velocity_range": (0.0, 0.0),
+    #     },
+    # )
 
     # log_joint_positions = EventTerm(
     #     func=mdp.log_joint_positions,
