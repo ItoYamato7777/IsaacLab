@@ -5,9 +5,12 @@
 ランダム位置へ移動 → 解放」のサイクルを無限に繰り返す。ロープは常に重力の
 影響を受け、地面に接した状態から掴む。
 
+ロープの作り方は `--rope` で切り替える (`rope_model/rope_specs.py` 参照)。
+既定は `simple` で、これは以前からこのデモが前提にしてきたモデルそのもの。
+
 実行方法 (IsaacLab リポジトリのルートから):
-    $ ./isaaclab.sh -p source/isaaclab_tasks/isaaclab_tasks/manager_based/\
-manipulation/knot_tying/rope_catch_demo.py
+    conda activate env_isaaclab
+    python source/isaaclab_tasks/isaaclab_tasks/manager_based/manipulation/knot_tying/rope_catch_demo.py --rope stiff
 
 ## グリッパーの移動方法 (スクリプト駆動のキネマティックハンド)
 
@@ -37,10 +40,12 @@ articulation の root リンクだけなので「ロープの端しか掴めな�
        マテリアルのうち優先度の高い combine mode を使い、max が最優先)。
        ロープ⇔地面の摩擦は据え置きになるので、搬送時に床へ貼り付かない。
     2. 指アクチュエータの stiffness と effort limit を上げる。指令は常に全閉
-       (`CLOSE_RATIO=0`) なので、ロープを挟むと半径ぶん (0.01 m) の追従誤差が
-       残り続け、**押し付け力 ≒ FINGER_STIFFNESS × 0.01 m** が定常的に出る。
-       既定値の 15 N ならロープ全体の重さ (0.4 kg ≒ 3.9 N) に対して
-       摩擦力 2 × 4.0 × 15 N と十分な余裕がある。
+       (`CLOSE_RATIO=0`) なので、ロープを挟むと **ロープ半径ぶん** の追従誤差が
+       残り続け、**押し付け力 ≒ FINGER_STIFFNESS × ロープ半径** が定常的に出る。
+       `simple` (半径 0.01 m, 全体 0.20 kg ≒ 1.97 N) なら 15 N/指、
+       `fine` (半径 0.004 m, 全体 0.033 kg ≒ 0.33 N) なら 6 N/指 となり、
+       いずれも摩擦係数 4.0 × 2 指ぶんで十分な余裕がある。実際の値は
+       起動時のログに出力される。
     3. 軌道は smoothstep で補間する。等速直線補間だと始点・終点で速度が
        階段状に変化し、その慣性力でロープが滑る。
 
@@ -55,12 +60,20 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import random
+import sys
 
 from isaaclab.app import AppLauncher
 
+# `rope_specs` は pxr も isaaclab も import しない軽量モジュールなので、
+# アプリ起動前 (argparse の時点) に読み込んでよい。
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "rope_model"))
+from rope_specs import add_rope_arg, get_spec  # noqa: E402
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--seed", type=int, default=0, help="把持点と移動先を決める乱数シード。")
+add_rope_arg(parser)
 parser.add_argument(
     "--grasp_link", type=int, default=-1, help="掴むリンク番号を固定する (-1 なら毎回ランダム)。"
 )
@@ -84,7 +97,7 @@ from isaaclab_tasks.manager_based.manipulation.parallel_gripper.gripper_cfg impo
     PARALLEL_GRIPPER_CFG,
 )
 from isaaclab_tasks.manager_based.manipulation.knot_tying.rope_model.rope_cfg import (  # noqa: E402
-    ROPE_MODEL_CFG,
+    make_rope_cfg,
 )
 
 # ---------------------------------------------------------------- 配置・動作パラメータ
@@ -121,6 +134,8 @@ TARGET_Y_RANGE = (-0.3, 0.3)
 
 def main():
     random.seed(args_cli.seed)
+    rope_spec = get_spec(args_cli.rope)
+    print(rope_spec.summary())
 
     sim_cfg = sim_utils.SimulationCfg(dt=SIM_DT, device=args_cli.device)
     sim = SimulationContext(sim_cfg)
@@ -137,7 +152,7 @@ def main():
     light_cfg.func("/World/Light", light_cfg)
 
     # -- ロープ (重力あり) を地面の少し上に出現させる
-    rope_cfg = ROPE_MODEL_CFG.copy()
+    rope_cfg = make_rope_cfg(args_cli.rope)
     rope_cfg.prim_path = ROPE_PRIM_PATH
     rope_cfg.init_state.pos = ROPE_INIT_POS
     rope = Articulation(cfg=rope_cfg)
@@ -177,7 +192,14 @@ def main():
     device = sim.device
     print("gripper joints:", gripper.joint_names)
     print("rope: num_joints=", rope.num_joints, " num_bodies=", rope.num_bodies)
-    print(f"grip force (estimated): {FINGER_STIFFNESS * 0.01:.1f} N/finger, friction={GRASP_FRICTION}")
+    # 押し付け力 ≒ 指の PD ゲイン × 追従誤差 (= ロープ半径)。ロープ重量に対する
+    # 余裕がどれだけあるかを起動時に確認できるようにしておく。
+    grip_force = FINGER_STIFFNESS * rope_spec.capsule_radius
+    rope_weight = rope_spec.total_mass * 9.81
+    print(
+        f"grip force (estimated): {grip_force:.1f} N/finger, friction={GRASP_FRICTION} "
+        f"-> max hold {2 * GRASP_FRICTION * grip_force:.1f} N vs rope weight {rope_weight:.2f} N"
+    )
 
     # -- 指関節のインデックスと「全開」目標値 (parallel_gripper_demo と同方式)
     finger_ids, _ = gripper.find_joints(

@@ -13,7 +13,8 @@ This script demonstrates how to create a cable/rope mechanism using individual p
 The rope is made of rigid body capsules connected with spherical joints.
 
 実行例:
-    python3 rope_demo.py
+    python source/isaaclab_tasks/isaaclab_tasks/manager_based/\
+manipulation/knot_tying/rope_model/rope_demo.py
 """
 
 from isaacsim import SimulationApp
