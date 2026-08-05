@@ -21,6 +21,23 @@ manipulation/knot_tying/rope_model/generate_rope_usd.py
 
 生成物: `data/rope_<name>.usd`
 
+## プリセットと表示色の対応
+
+`multi_rope_catch_demo.py` で 4 本を横並びにしたときに、どれがどの
+プリセットかを一目で見分けられるよう、作り方に応じて色を変えている
+(`rope_specs.py` の `RopeSpec.color`)。物理挙動には影響しない。
+
+    | プリセット | 色     | linear RGB           | 作り方の要点                        |
+    |------------|--------|----------------------|-------------------------------------|
+    | `simple`   | 青     | (0.10, 0.35, 0.85)   | 曲げ剛性なし・角度制限なし・捩りロック |
+    | `stiff`    | 緑     | (0.15, 0.65, 0.20)   | 曲げ剛性 EI あり・曲げ ±60°・捩りロック |
+    | `twist`    | 橙     | (0.95, 0.50, 0.05)   | stiff + 捩り (rotX) を解放           |
+    | `fine`     | 赤     | (0.85, 0.12, 0.15)   | 直径 8 mm・48 リンクの高分解能       |
+
+覚え方: 青 = 手を入れていない素のモデル、緑 = 曲げ剛性を入れたもの、
+橙 = さらに捩りを解放したもの、赤 = 寸法と分解能まで変えたもの。
+青 -> 緑 -> 橙 と 1 段ずつ自由度が増え、赤だけ別系統。
+
 ## 関節の構成 (1 リンク間につき 1 個の汎用ジョイント)
 
     - 並進 transX/Y/Z: 常にロック (`low > high` は USD Physics の慣例で
@@ -97,7 +114,9 @@ def add_capsule_link(stage: Usd.Stage, path: str, material_path: str, spec: Rope
     geom.CreateAxisAttr("X")
     geom.CreateRadiusAttr(spec.capsule_radius)
     geom.CreateHeightAttr(2.0 * spec.capsule_half_length)
-    geom.CreateDisplayColorAttr([Gf.Vec3f(0.1, 0.4, 0.8)])
+    # 表示色はプリセットごとに変える (モジュール docstring の対応表を参照)。
+    # 複数のロープを横並びにしたときの見分け用で、物理には影響しない。
+    geom.CreateDisplayColorAttr([Gf.Vec3f(*spec.color)])
     UsdPhysics.CollisionAPI.Apply(geom.GetPrim())
     _bind_physics_material(stage, geom.GetPrim(), material_path)
     return prim

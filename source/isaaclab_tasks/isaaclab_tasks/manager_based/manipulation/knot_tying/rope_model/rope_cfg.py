@@ -31,6 +31,34 @@ except ImportError:  # スクリプトとして直接実行された場合
     from rope_specs import DEFAULT_ROPE, RopeSpec, get_spec
 
 
+_SIM_HZ_REF = 240.0
+"""Cfg 内のスケーリングが前提とする物理ステップ周波数 [Hz]。デモ側と揃えてある。"""
+
+MAX_ANGULAR_VELOCITY_DEG = 2865.0
+"""リンクの角速度上限 [deg/s] (= 50 rad/s)。
+
+PhysX / Isaac Lab の既定 (36000 deg/s = 628 rad/s) は事実上の無制限で、
+細いロープでは危険。`fine` のリンク慣性は 1.95e-8 kg*m^2 と `simple` の
+1/170 しかなく、わずかな接触トルクでも角加速度が数万 rad/s^2 に達して
+暴走する。通常の動作では 1〜10 rad/s 程度しか出ないので、50 rad/s は
+「正常動作には全く触れないが、発散だけは止める」水準。
+"""
+
+
+def _max_depenetration_velocity(spec: RopeSpec) -> float:
+    """めり込み解消速度の上限 [m/s] をロープ半径からスケールして返す。
+
+    固定値 1.0 m/s だと 240 Hz で 1 ステップあたり 4.2 mm 押し戻すことに
+    なり、半径 4 mm の `fine` では **自分の半径より大きく吹き飛ぶ**。実際
+    これが `fine` の持ち上げ中に NaN が出る主因だった。
+
+    そこで「1 ステップで半径の 40% 以上は押し戻さない」を条件にする。
+    `simple` (半径 0.01 m) では 0.96 m/s となり従来の 1.0 m/s とほぼ同じ、
+    `fine` (半径 0.004 m) では 0.38 m/s に下がる。
+    """
+    return 0.4 * spec.capsule_radius * _SIM_HZ_REF
+
+
 def make_rope_cfg(name: str = DEFAULT_ROPE) -> ArticulationCfg:
     """プリセット名から ロープの `ArticulationCfg` を組み立てる。
 
@@ -47,8 +75,8 @@ def make_rope_cfg(name: str = DEFAULT_ROPE) -> ArticulationCfg:
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 rigid_body_enabled=True,
                 max_linear_velocity=100.0,
-                max_angular_velocity=36000.0,  # 単位は deg/s (Isaac Lab の慣例)
-                max_depenetration_velocity=1.0,
+                max_angular_velocity=MAX_ANGULAR_VELOCITY_DEG,
+                max_depenetration_velocity=_max_depenetration_velocity(spec),
                 enable_gyroscopic_forces=True,
             ),
             collision_props=sim_utils.CollisionPropertiesCfg(
@@ -61,7 +89,8 @@ def make_rope_cfg(name: str = DEFAULT_ROPE) -> ArticulationCfg:
             ),
             articulation_props=sim_utils.ArticulationRootPropertiesCfg(
                 enabled_self_collisions=True,
-                solver_position_iteration_count=16,
+                # 長い連鎖ほど接触の解決に反復が要る。
+                solver_position_iteration_count=min(32, max(16, spec.num_links // 2)),
                 solver_velocity_iteration_count=1,
             ),
         ),

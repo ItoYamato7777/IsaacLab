@@ -41,11 +41,14 @@ articulation の root リンクだけなので「ロープの端しか掴めな�
        ロープ⇔地面の摩擦は据え置きになるので、搬送時に床へ貼り付かない。
     2. 指アクチュエータの stiffness と effort limit を上げる。指令は常に全閉
        (`CLOSE_RATIO=0`) なので、ロープを挟むと **ロープ半径ぶん** の追従誤差が
-       残り続け、**押し付け力 ≒ FINGER_STIFFNESS × ロープ半径** が定常的に出る。
-       `simple` (半径 0.01 m, 全体 0.20 kg ≒ 1.97 N) なら 15 N/指、
-       `fine` (半径 0.004 m, 全体 0.033 kg ≒ 0.33 N) なら 6 N/指 となり、
-       いずれも摩擦係数 4.0 × 2 指ぶんで十分な余裕がある。実際の値は
-       起動時のログに出力される。
+       残り続け、**押し付け力 ≒ 指の PD ゲイン × ロープ半径** が定常的に出る。
+       ゲインを全プリセット共通の固定値にすると、細くて軽い `fine` では
+       「質量あたりの押し付け力」が `simple` の 8 倍になり、指がロープ半径
+       より深く閉じ込んで貫通 → 発散 (NaN) する。そこでゲインは
+       `RopeSpec.grasp_finger_stiffness` が比加速度を一定に保つよう導出する:
+       `simple` は 1500 N/m (15 N/指)、`fine` は 241 N/m (0.96 N/指)。
+       どちらも摩擦係数 4.0 × 2 指ぶんでロープ重量の 10 倍以上の余裕がある。
+       実際の値は起動時のログに出力される。
     3. 軌道は smoothstep で補間する。等速直線補間だと始点・終点で速度が
        階段状に変化し、その慣性力でロープが滑る。
 
@@ -123,8 +126,11 @@ CLOSE_RATIO = 0.0   # 把持時の指令。全閉を指令し続けて押し付�
 
 # 摩擦把持のためのパラメータ (モジュール docstring の「把持方法」参照)。
 GRASP_FRICTION = 4.0        # 指の当たり面の摩擦係数 (static / dynamic とも)。
-FINGER_STIFFNESS = 1500.0   # 指の PD ゲイン。押し付け力 ≒ これ × ロープ半径 0.01 m。
-FINGER_DAMPING = 60.0
+# 指の PD ゲインはロープごとに変える (`RopeSpec.grasp_finger_stiffness`)。
+# 全プリセット共通の固定値にすると、細くて軽い `fine` では質量あたりの
+# 押し付け力が `simple` の 8 倍になり、指がロープ半径より深く閉じ込んで
+# 貫通 → 発散 (NaN) する。基準は調整済みの `simple` なので同モデルは不変。
+FINGER_DAMPING_RATIO = 0.04  # damping / stiffness の比 (従来の 60 / 1500)。
 FINGER_EFFORT_LIMIT = 100.0  # 押し付け力が頭打ちにならないよう十分大きく取る。
 
 # ランダムな移動先 (搬送先) の XY 範囲 [m]。
@@ -166,10 +172,12 @@ def main():
     # 強い押し付け力でも指がロープにめり込まないようソルバの反復回数を増やす。
     gripper_cfg.spawn.articulation_props.solver_position_iteration_count = 16
     gripper_cfg.spawn.articulation_props.solver_velocity_iteration_count = 1
-    # 把持力を上げる (既定は stiffness=400 / effort=20)。
+    # 把持力を上げる (既定は stiffness=400 / effort=20)。ゲインはロープごとに
+    # スケールする (細く軽いロープを潰して発散させないため)。
+    finger_stiffness = rope_spec.grasp_finger_stiffness
     finger_actuator = gripper_cfg.actuators["finger_actuator"]
-    finger_actuator.stiffness = FINGER_STIFFNESS
-    finger_actuator.damping = FINGER_DAMPING
+    finger_actuator.stiffness = finger_stiffness
+    finger_actuator.damping = FINGER_DAMPING_RATIO * finger_stiffness
     finger_actuator.effort_limit_sim = FINGER_EFFORT_LIMIT
     gripper = Articulation(cfg=gripper_cfg)
 
@@ -194,7 +202,7 @@ def main():
     print("rope: num_joints=", rope.num_joints, " num_bodies=", rope.num_bodies)
     # 押し付け力 ≒ 指の PD ゲイン × 追従誤差 (= ロープ半径)。ロープ重量に対する
     # 余裕がどれだけあるかを起動時に確認できるようにしておく。
-    grip_force = FINGER_STIFFNESS * rope_spec.capsule_radius
+    grip_force = finger_stiffness * rope_spec.capsule_radius
     rope_weight = rope_spec.total_mass * 9.81
     print(
         f"grip force (estimated): {grip_force:.1f} N/finger, friction={GRASP_FRICTION} "

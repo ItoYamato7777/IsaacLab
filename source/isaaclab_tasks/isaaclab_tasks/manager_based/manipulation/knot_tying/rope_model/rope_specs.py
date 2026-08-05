@@ -13,12 +13,15 @@ math のみ)。パッケージ自動インポート経路に乗っても軽い�
 
 ## プリセット一覧
 
-| name     | 狙い                          | 曲げ剛性 | 曲げ角度制限 | 捩り (rotX) | リンク数 | 直径   |
-|----------|-------------------------------|----------|--------------|-------------|----------|--------|
-| `simple` | 現行モデル (比較用ベースライン) | なし     | なし         | ロック      | 20       | 20 mm  |
-| `stiff`  | 曲げ剛性を入れた「腰のある」縄 | あり     | ±60°         | ロック      | 20       | 20 mm  |
-| `twist`  | `stiff` + 捩り自由度を解放     | あり     | ±60°         | 自由(低剛性) | 20       | 20 mm  |
-| `fine`   | 結び目が結べる細径・高分解能   | あり     | ±44°         | 自由(低剛性) | 64       | 8 mm   |
+| name     | 色   | 狙い                          | 曲げ剛性 | 曲げ角度制限 | 捩り (rotX) | リンク数 | 直径   |
+|----------|------|-------------------------------|----------|--------------|-------------|----------|--------|
+| `simple` | 青   | 現行モデル (比較用ベースライン) | なし     | なし         | ロック      | 20       | 20 mm  |
+| `stiff`  | 緑   | 曲げ剛性を入れた「腰のある」縄 | あり     | ±60°         | ロック      | 20       | 20 mm  |
+| `twist`  | 橙   | `stiff` + 捩り自由度を解放     | あり     | ±60°         | 自由(低剛性) | 20       | 20 mm  |
+| `fine`   | 赤   | 結び目が結べる細径・高分解能   | あり     | ±60°         | 自由(低剛性) | 48       | 8 mm   |
+
+色は `multi_rope_catch_demo.py` で 4 本を横並びにしたとき、どれがどの
+プリセットかを一目で見分けるためのもの。
 
 `simple` → `stiff` → `twist` → `fine` は 1 段ずつ単一の軸だけを変えてあるので、
 挙動の差をその変更に帰属させられる (`fine` のみ寸法と分解能を同時に変える)。
@@ -86,6 +89,39 @@ MIN_BEND_RADIUS_IN_DIAMETERS = 2.0
 """
 
 
+HALF_LENGTH_TO_RADIUS = 2.0
+"""カプセル円柱部の半長 / 半径 の比。全プリセットで共通に保つ幾何拘束。
+
+この比を小さくすると、**隣接していないリンク同士が常時接触してしまう**。
+
+リンク間隔は `2 * half_length`、カプセル全長は `2 * half_length + 2 * radius`
+なので、1 つ飛ばしのリンク `k` と `k+2` の軸方向の隙間は
+
+    gap = 2 * spacing - capsule_total_length = 2 * (half_length - radius)
+
+一方、接触が生成され始める距離は `2 * contact_offset = 0.8 * radius`
+(`RopeSpec.contact_offset` 参照)。比 2.0 のとき
+
+    gap / 接触範囲 = 2 * radius / (0.8 * radius) = 2.5
+
+と余裕があるが、比 1.5 まで落とすと 1.25 になり、ロープがほぼ真っ直ぐな
+状態でも k と k+2 が接触判定に入り続ける。すると関節拘束と接触拘束が
+競合し、慣性の小さい細いロープでは持ち上げた瞬間に発散する
+(実際 `fine` を比 1.5 で作ったときは把持後の lift で必ず NaN になった)。
+
+`k` と `k+1` は関節で直結されているため物理エンジンが自動的に接触除外
+するので問題にならない。効いてくるのは常に `k` と `k+2` の組。
+"""
+
+_GRASP_SPECIFIC_FORCE = 1500.0
+"""摩擦把持時の「リンク質量あたりの押し付け力」[m/s^2]。
+
+既存デモで調整済みの `simple` (指ゲイン 1500 N/m, 半径 0.01 m,
+リンク質量 0.01 kg -> 15 N / 0.01 kg) を基準値として採用している。
+詳細は `RopeSpec.grasp_finger_stiffness` の docstring 参照。
+"""
+
+
 def _capsule_volume(radius: float, cylinder_height: float) -> float:
     """カプセル (円柱 + 両端の半球) の体積 [m^3]。"""
     return math.pi * radius**2 * cylinder_height + (4.0 / 3.0) * math.pi * radius**3
@@ -104,6 +140,16 @@ class RopeSpec:
 
     description: str
     """`--rope` のヘルプに出る 1 行説明。"""
+
+    color: tuple[float, float, float]
+    """カプセルの表示色 (linear RGB, 0-1)。プリセットごとに変えてある。
+
+    複数のロープを横並びにしたとき (`multi_rope_catch_demo.py`) に、
+    どれがどのプリセットかを目視で判別するためのもの。物理には影響しない。
+    """
+
+    color_name: str
+    """色の日本語名 (ログ表示用)。"""
 
     num_links: int
     """カプセル剛体リンクの本数。"""
@@ -194,6 +240,29 @@ class RopeSpec:
         return 0.4 * self.capsule_radius
 
     @property
+    def grasp_finger_stiffness(self) -> float:
+        """このロープを摩擦把持するのに適した指 PD ゲイン [N/m]。
+
+        平行グリッパーのデモは常に全閉を指令するので、ロープを挟むと
+        **ロープ半径ぶんの追従誤差**が残り、``押し付け力 = k * 半径`` が
+        定常的に出る。ここで k を全プリセット共通の固定値にすると、
+        細くて軽いロープほど「質量あたりの押し付け力」が大きくなりすぎる:
+
+            simple: 15 N / 0.0101 kg = 1500 m/s^2
+            fine:    6 N / 0.00052 kg = 11500 m/s^2   <- 8 倍。潰れて発散する
+
+        実際 `fine` は固定 k=1500 だと指がロープ半径より深く閉じ込み、
+        貫通 -> depenetration による吹き飛びで NaN に至る。そこで
+        **質量あたりの押し付け力 (比加速度) を一定** に保つよう k を導出する:
+
+            k * radius / link_mass = _GRASP_SPECIFIC_FORCE   (一定)
+
+        基準値は既存デモで調整済みの `simple` (k=1500, 半径 0.01 m,
+        質量 0.01 kg) から取ってあるので、`simple` の挙動は変わらない。
+        """
+        return _GRASP_SPECIFIC_FORCE * self.link_mass / self.capsule_radius
+
+    @property
     def usd_path(self) -> str:
         """生成される USD ファイルの絶対パス。"""
         return os.path.join(_DATA_DIR, f"rope_{self.name}.usd")
@@ -203,7 +272,8 @@ class RopeSpec:
         twist = "locked" if self.twist_stiffness is None else f"k={self.twist_stiffness:.4g}"
         bend_limit = "none" if self.bend_limit_deg is None else f"+-{self.bend_limit_deg:.0f}deg"
         return (
-            f"rope '{self.name}': links={self.num_links} dia={self.diameter * 1000:.1f}mm "
+            f"rope '{self.name}' ({self.color_name}): "
+            f"links={self.num_links} dia={self.diameter * 1000:.1f}mm "
             f"len={self.rope_length:.3f}m mass={self.total_mass * 1000:.1f}g "
             f"({self.linear_density:.3f}kg/m) bend(k={self.bend_stiffness:.4g},"
             f"c={self.bend_damping:.4g},{bend_limit}) twist({twist})"
@@ -215,8 +285,9 @@ def _make_physical_spec(
     description: str,
     num_links: int,
     capsule_radius: float,
-    capsule_half_length: float,
     lock_twist: bool,
+    color: tuple[float, float, float],
+    color_name: str,
     youngs_modulus: float = ROPE_YOUNGS_MODULUS,
     density: float = ROPE_DENSITY,
     damping_ratio: float = BEND_DAMPING_RATIO,
@@ -238,6 +309,9 @@ def _make_physical_spec(
         減衰                c = 2 * zeta * sqrt(k * I_link) [N*m*s/rad]
         曲げ角度制限        theta_max = 2 * asin(L_seg / (2 * R_min))
     """
+    # 円柱部の半長は半径から導出する。この比は 1 つ飛ばしのリンクが
+    # 常時接触してしまうのを避けるための幾何拘束 (HALF_LENGTH_TO_RADIUS 参照)。
+    capsule_half_length = HALF_LENGTH_TO_RADIUS * capsule_radius
     segment_length = 2.0 * capsule_half_length
     total_length = segment_length + 2.0 * capsule_radius
 
@@ -271,6 +345,8 @@ def _make_physical_spec(
     return RopeSpec(
         name=name,
         description=description,
+        color=color,
+        color_name=color_name,
         num_links=num_links,
         capsule_radius=capsule_radius,
         capsule_half_length=capsule_half_length,
@@ -290,6 +366,8 @@ def _make_physical_spec(
 _SIMPLE = RopeSpec(
     name="simple",
     description="現行モデル。曲げ剛性なし・角度制限なし・捩りロック (比較用ベースライン)",
+    color=(0.10, 0.35, 0.85),
+    color_name="青",
     num_links=20,
     capsule_radius=0.01,
     capsule_half_length=0.02,
@@ -309,27 +387,30 @@ _SIMPLE = RopeSpec(
 _STIFF = _make_physical_spec(
     name="stiff",
     description="曲げ剛性 EI と最小曲げ半径を実物基準で入れた「腰のある」ロープ",
+    color=(0.15, 0.65, 0.20),
+    color_name="緑",
     num_links=20,
     capsule_radius=0.01,
-    capsule_half_length=0.02,
     lock_twist=True,
 )
 
 _TWIST = _make_physical_spec(
     name="twist",
     description="stiff + 捩り (rotX) を解放。結び目のように捩れが発生する操作向け",
+    color=(0.95, 0.50, 0.05),
+    color_name="橙",
     num_links=20,
     capsule_radius=0.01,
-    capsule_half_length=0.02,
     lock_twist=False,
 )
 
 _FINE = _make_physical_spec(
     name="fine",
-    description="直径 8 mm・64 リンク。結び目が結べる分解能 (計算コストは高い)",
-    num_links=64,
+    description="直径 8 mm・48 リンク。結び目が結べる分解能 (計算コストは高い)",
+    color=(0.85, 0.12, 0.15),
+    color_name="赤",
+    num_links=48,
     capsule_radius=0.004,
-    capsule_half_length=0.006,
     lock_twist=False,
 )
 
