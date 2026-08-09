@@ -58,6 +58,33 @@ ROPE_DENSITY = 600.0
 となり、実物のカタログ値と整合する。
 """
 
+ROPE_FRICTION = 2.0
+"""ロープ表面の摩擦係数 (static / dynamic とも同値)。全プリセット共通。
+
+PhysX は接触する 2 つのマテリアルの摩擦を **合成則** で 1 つにまとめる。
+Isaac Lab の既定は ``"average"`` なので、実効摩擦は次のようになる:
+
+    ロープ <-> 床   : (ROPE_FRICTION + GROUND_FRICTION) / 2 = 2.5
+    ロープ <-> ロープ: (ROPE_FRICTION + ROPE_FRICTION) / 2   = 2.0
+
+ロープ同士の自己摩擦が上がるのは結び目にとって好都合で、結び目が
+締まったまま保持される物理 (キャプスタン効果) が出やすくなる。
+
+指との接触だけは例外で、グリッパー側が ``friction_combine_mode="max"``
+の専用マテリアル (係数 4.0) を持つ。PhysX は合成則の優先度が高い方を
+採用し ``max`` が最優先なので、指 <-> ロープ は ``max(2.0, 4.0) = 4.0``
+のまま変わらない。つまりこの値を上げても **把持力の設計には影響しない**。
+"""
+
+GROUND_FRICTION = 2.0
+"""ロープを置く床 (ground plane) の摩擦係数。各デモの地面生成で使う。
+
+`ROPE_FRICTION` と合わせて、ロープ <-> 床 の実効摩擦を 2.5 にする
+(従来は両方 1.0 で実効 1.0 だったので 2.5 倍)。値を大きくすると床の上で
+ロープが滑りにくくなり、掴んで動かしたときに引きずられて全体が付いて
+くる度合いが強くなる。逆に持ち上げる際は床に残った部分の抵抗が増える。
+"""
+
 ROPE_YOUNGS_MODULUS = 1.0e6
 """曲げに関する **実効** ヤング率 [Pa]。
 
@@ -291,7 +318,7 @@ def _make_physical_spec(
     youngs_modulus: float = ROPE_YOUNGS_MODULUS,
     density: float = ROPE_DENSITY,
     damping_ratio: float = BEND_DAMPING_RATIO,
-    friction: float = 1.0,
+    friction: float = ROPE_FRICTION,
     twist_limit_deg: float | None = 90.0,
 ) -> RopeSpec:
     """材料定数と寸法から関節ゲインを導出して `RopeSpec` を組み立てる。
@@ -372,7 +399,7 @@ _SIMPLE = RopeSpec(
     capsule_radius=0.01,
     capsule_half_length=0.02,
     link_mass=0.01,
-    friction=1.0,
+    friction=ROPE_FRICTION,
     bend_stiffness=0.0,
     # 既存 USD は damping 属性へ 0.01 を直接書いていた。USD の角度ドライブは
     # deg 基準なので、rad 基準では 0.01 * 180/pi ≒ 0.5730 が実効値になる。

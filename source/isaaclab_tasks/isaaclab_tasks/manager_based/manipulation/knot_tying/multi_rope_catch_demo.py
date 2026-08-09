@@ -52,7 +52,7 @@ from isaaclab.app import AppLauncher
 # `rope_specs` は pxr も isaaclab も import しない軽量モジュールなので、
 # アプリ起動前 (argparse の時点) に読み込んでよい。
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "rope_model"))
-from rope_specs import ROPE_SPECS, get_spec  # noqa: E402
+from rope_specs import GROUND_FRICTION, ROPE_SPECS, get_spec  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--seed", type=int, default=0, help="把持点と運び先を決める乱数シード。")
@@ -95,7 +95,7 @@ SETTLE_TIME = 1.5     # 開始時にロープを地面へ落ち着かせる時�
 # グリッパー手のひら (base_link) の高さ [m]。指先は base_link 中心から 0.075 m 下。
 GRASP_PALM_Z = 0.077  # 指先が床上 0.002 m に来る把持高さ
 HOME_PALM_Z = 0.30    # 接近開始 / 退避の高さ
-CARRY_PALM_Z = 0.20   # 持ち上げ・搬送の高さ
+CARRY_PALM_Z = 0.15   # 持ち上げ・搬送の高さ
 
 OPEN_RATIO = 0.8      # 接近/解放時の指の開き (0=全閉, 1=全開)
 CLOSE_RATIO = 0.0     # 把持時の指令 (全閉を指令し続けて押し付け力を出す)
@@ -104,8 +104,9 @@ GRASP_FRICTION = 4.0          # 指の当たり面の摩擦係数
 FINGER_DAMPING_RATIO = 0.04   # 指の damping / stiffness の比 (単体デモの 60/1500)
 FINGER_EFFORT_LIMIT = 100.0
 
-# 運び先のランダム範囲。Y はレーン内に収めて隣のロープと干渉させない。
-TARGET_X_RANGE = (-0.25, 0.25)
+# 運び先のランダム範囲。
+TARGET_X_RANGE = (-0.2, 0.2)
+TARGET_Y_RANGE = (-0.3, 0.3)
 TARGET_Y_JITTER = 0.12
 
 # (フェーズ名, 所要時間 [s]) — 全レーン共通の尺
@@ -235,7 +236,8 @@ class RopeLane:
         lift = [gx, gy, CARRY_PALM_Z]
         target = [
             random.uniform(*TARGET_X_RANGE),
-            self.lane_y + random.uniform(-TARGET_Y_JITTER, TARGET_Y_JITTER),
+            # self.lane_y + random.uniform(-TARGET_Y_JITTER, TARGET_Y_JITTER),
+            random.uniform(*TARGET_Y_RANGE) + self.lane_y,
             CARRY_PALM_Z,
         ]
         retreat = [target[0], target[1], HOME_PALM_Z]
@@ -350,7 +352,10 @@ def main():
     # -- 地面・ライト
     ground_cfg = sim_utils.GroundPlaneCfg(
         physics_material=sim_utils.RigidBodyMaterialCfg(
-            static_friction=1.0, dynamic_friction=1.0, restitution=0.0,
+            # 床の摩擦。ロープ側 (ROPE_FRICTION) と average で合成され、
+            # ロープ <-> 床 の実効摩擦になる (rope_specs.py 参照)。
+            static_friction=GROUND_FRICTION, dynamic_friction=GROUND_FRICTION,
+            restitution=0.0,
         ),
     )
     ground_cfg.func("/World/defaultGroundPlane", ground_cfg)

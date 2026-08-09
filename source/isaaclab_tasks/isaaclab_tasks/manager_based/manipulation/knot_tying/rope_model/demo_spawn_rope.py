@@ -28,7 +28,7 @@ import sys
 from isaaclab.app import AppLauncher
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rope_specs import add_rope_arg, get_spec  # noqa: E402
+from rope_specs import GROUND_FRICTION, add_rope_arg, get_spec  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument(
@@ -61,7 +61,10 @@ def main():
 
     ground_cfg = sim_utils.GroundPlaneCfg(
         physics_material=sim_utils.RigidBodyMaterialCfg(
-            static_friction=1.0, dynamic_friction=1.0, restitution=0.0,
+            # 床の摩擦。ロープ側 (ROPE_FRICTION) と average で合成され、
+            # ロープ <-> 床 の実効摩擦になる (rope_specs.py 参照)。
+            static_friction=GROUND_FRICTION, dynamic_friction=GROUND_FRICTION,
+            restitution=0.0,
         ),
     )
     ground_cfg.func("/World/defaultGroundPlane", ground_cfg)
