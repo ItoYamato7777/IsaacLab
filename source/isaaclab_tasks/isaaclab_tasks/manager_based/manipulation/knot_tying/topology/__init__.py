@@ -40,6 +40,7 @@ from .intersections import (
     DEFAULT_EPS,
     PAD,
     IntersectionBatch,
+    crossing_positions,
     has_duplicate_segments,
     segment_intersections,
 )
@@ -66,6 +67,7 @@ __all__ = [
     "batch_p_data",
     "batch_polyline_to_topology",
     "center_xy",
+    "crossing_positions",
     "has_duplicate_segments",
     "intersections_to_topology",
     "p_data_from_batch",

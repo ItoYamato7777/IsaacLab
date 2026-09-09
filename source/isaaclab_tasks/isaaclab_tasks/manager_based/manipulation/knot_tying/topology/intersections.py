@@ -305,6 +305,54 @@ def _pack(
     return IntersectionBatch(data, order, count)
 
 
+def crossing_positions(points: torch.Tensor, batch: IntersectionBatch, eps: float = DEFAULT_EPS) -> torch.Tensor:
+    """各交差の xy 座標を元のポリラインから復元する (可視化・デバッグ用)。
+
+    `IntersectionBatch` は交点の座標も内分比も持たない。位相の判定には
+    セグメント番号と `over` / `sign` しか要らず、`alpha` を持ち回ると
+    そのぶん GPU->CPU の転送量が増えるだけだからである。座標が要るのは
+    図を描くときと目視検証のときだけなので、そのときに解き直す。
+
+    `segment_intersections` と同じ解析解を、検出済みのペアに対してだけ
+    もう一度評価する。ペア総数 `O(N^2)` ではなく交差数 `M` に比例するので
+    再計算のコストは無視できる。
+
+    Args:
+        points: `segment_intersections` に渡したものと同じポリライン
+            `(num_envs, num_nodes, 3)` または `(num_nodes, 3)`。
+        batch: そのポリラインから得た `IntersectionBatch`。
+        eps: 平行判定の閾値。`segment_intersections` と同じ値を渡すこと。
+
+    Returns:
+        `(num_envs, max_crossings, 2)`。パディング要素は NaN
+        (matplotlib はそのまま描画から落としてくれる)。
+    """
+    if points.dim() == 2:
+        points = points.unsqueeze(0)
+    num_envs = points.shape[0]
+    if batch.max_crossings == 0:
+        return torch.zeros((num_envs, 0, 2), dtype=points.dtype, device=points.device)
+
+    xy = points[..., :2]
+    # PAD (-1) のままだと gather が範囲外で落ちるので 0 に潰し、最後に NaN で消す。
+    idx_i = batch.data[..., 0].clamp_min(0)
+    idx_j = batch.data[..., 1].clamp_min(0)
+
+    def take(idx: torch.Tensor) -> torch.Tensor:
+        return torch.gather(xy, 1, idx.unsqueeze(-1).expand(-1, -1, 2))
+
+    a = take(idx_i)
+    d1 = take(idx_i + 1) - a
+    c = take(idx_j)
+    d2 = take(idx_j + 1) - c
+
+    den = _cross2(d1, d2)
+    safe_den = torch.where(den.abs() < eps, torch.ones_like(den), den)
+    alpha = _cross2(c - a, d2) / safe_den
+    pos = a + alpha.unsqueeze(-1) * d1
+    return torch.where(batch.valid_mask.unsqueeze(-1), pos, torch.full_like(pos, float("nan")))
+
+
 def has_duplicate_segments(batch: IntersectionBatch) -> torch.Tensor:
     """`(num_envs,)` の bool。同じセグメントに交差が 2 個以上ある環境が True。
 

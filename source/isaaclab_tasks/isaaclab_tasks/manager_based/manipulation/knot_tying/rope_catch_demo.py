@@ -83,6 +83,13 @@ parser.add_argument(
 parser.add_argument(
     "--max_steps", type=int, default=0, help="実行する物理ステップ数の上限 (0 なら無制限)。動作確認用。"
 )
+parser.add_argument(
+    "--rope_physx",
+    action="store_true",
+    help="シーン全体の PhysX 接触設定をロープ寸法基準へ縮小する (rope_cfg.make_rope_physx_cfg)。"
+    " キャプスタン効果 (結び目を締めたまま保持する物理) が効くために必要だが、"
+    " グリップの押し付け力などシーン全体の接触挙動にも影響するため既定では off。",
+)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 
@@ -101,6 +108,7 @@ from isaaclab_tasks.manager_based.manipulation.parallel_gripper.gripper_cfg impo
 )
 from isaaclab_tasks.manager_based.manipulation.knot_tying.rope_model.rope_cfg import (  # noqa: E402
     make_rope_cfg,
+    make_rope_physx_cfg,
 )
 
 # ---------------------------------------------------------------- 配置・動作パラメータ
@@ -121,8 +129,17 @@ GRASP_PALM_Z = 0.077   # 把持高さ。指先が床上 0.002 m に来て、半�
 HOME_PALM_Z = 0.30     # 接近開始/退避の手のひら高さ。
 CARRY_PALM_Z = 0.20    # 持ち上げ・搬送時の手のひら高さ。
 
-OPEN_RATIO = 0.8    # 接近/解放時の指の開き (0=全閉, 1=全開)。1.0 で 0.06 m 開く。
+OPEN_RATIO = 0.8    # 接近時の指の開き (0=全閉, 1=全開)。1.0 で 0.06 m 開く。
 CLOSE_RATIO = 0.0   # 把持時の指令。全閉を指令し続けて押し付け力を出す (docstring 参照)。
+RELEASE_RATIO = 1.0
+"""離すときの指の開度 (0=全閉, 1=全開)。接近時の `OPEN_RATIO` より広く開ける。
+
+`OPEN_RATIO` (0.8) までしか開かずに真上へ退避すると、指の間に残った
+ロープがそのまま持ち上がってくることがある (`topology_debug_demo.py` で
+実測済み: 離したはずのロープ端が z=0.27〜0.29 m までついてきた)。
+全開にして隙間をロープ直径の数倍まで広げ、退避前に横へ抜けてから
+引き上げると確実に落ちる (`RELEASE_TIME` 以降のフェーズ構成を参照)。
+"""
 
 # 摩擦把持のためのパラメータ (モジュール docstring の「把持方法」参照)。
 GRASP_FRICTION = 4.0        # 指の当たり面の摩擦係数 (static / dynamic とも)。
@@ -144,6 +161,11 @@ def main():
     print(rope_spec.summary())
 
     sim_cfg = sim_utils.SimulationCfg(dt=SIM_DT, device=args_cli.device)
+    if args_cli.rope_physx:
+        # 接触点の統合距離などをロープ直径基準へ縮小する。既定で入れないのは
+        # シーン全体の設定を変えるため (グリッパーの押し付け力にも効く)。
+        sim_cfg.physx = make_rope_physx_cfg(rope_spec)
+        print(f"physx: ロープ寸法基準の接触設定を使う ({sim_cfg.physx})")
     sim = SimulationContext(sim_cfg)
     sim.set_camera_view([1.0, 1.0, 0.7], [0.0, 0.0, 0.1])
 
@@ -323,6 +345,18 @@ def main():
         lift_pos = [gx, gy, CARRY_PALM_Z]
         target = [random.uniform(*TARGET_X_RANGE), random.uniform(*TARGET_Y_RANGE), CARRY_PALM_Z]
         retreat_pos = [target[0], target[1], HOME_PALM_Z]
+        # 離した後、真上へ上げる前に **横へ抜ける** (搬送してきた向きへそのまま
+        # 数直径ぶん進む)。全開にしても、ロープが指の上に乗っていたりハンド
+        # 本体に掛かっていたりすると真上への退避で一緒に持ち上がってしまう
+        # ("くっつき" バグ。`RELEASE_RATIO` の docstring 参照)。
+        clear_dx, clear_dy = target[0] - lift_pos[0], target[1] - lift_pos[1]
+        clear_norm = math.hypot(clear_dx, clear_dy) or 1.0
+        clear_dist = 4.0 * rope_spec.diameter
+        clear_pos = [
+            target[0] + clear_dx / clear_norm * clear_dist,
+            target[1] + clear_dy / clear_norm * clear_dist,
+            CARRY_PALM_Z,
+        ]
         print(
             f"=== grasp {rope.body_names[grasp_id]} at ({gx:.3f}, {gy:.3f}) "
             f"yaw={math.degrees(grasp_yaw):.1f}deg -> place at ({target[0]:.3f}, {target[1]:.3f})"
@@ -336,8 +370,10 @@ def main():
             (grasp_pos, grasp_pos, grasp_yaw, grasp_yaw, CLOSE_RATIO, CLOSE_RATIO, 0.4),  # 接触の安定待ち
             (grasp_pos, lift_pos, grasp_yaw, grasp_yaw, CLOSE_RATIO, CLOSE_RATIO, 1.2),  # 持ち上げ
             (lift_pos, target, grasp_yaw, grasp_yaw, CLOSE_RATIO, CLOSE_RATIO, 2.0),  # 搬送
-            (target, target, grasp_yaw, grasp_yaw, CLOSE_RATIO, OPEN_RATIO, 0.5),  # 解放
-            (target, retreat_pos, grasp_yaw, grasp_yaw, OPEN_RATIO, OPEN_RATIO, 0.8),  # 退避
+            (target, target, grasp_yaw, grasp_yaw, CLOSE_RATIO, RELEASE_RATIO, 0.5),  # 解放 (全開)
+            (target, target, grasp_yaw, grasp_yaw, RELEASE_RATIO, RELEASE_RATIO, 0.6),  # その場で待つ
+            (target, clear_pos, grasp_yaw, grasp_yaw, RELEASE_RATIO, RELEASE_RATIO, 0.6),  # 横へ抜ける
+            (clear_pos, retreat_pos, grasp_yaw, grasp_yaw, RELEASE_RATIO, RELEASE_RATIO, 0.8),  # 退避
         ):
             if not run_segment(*seg):
                 return

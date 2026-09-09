@@ -65,6 +65,12 @@ parser.add_argument(
 parser.add_argument(
     "--max_steps", type=int, default=0, help="実行する物理ステップ数の上限 (0 なら無制限)。"
 )
+parser.add_argument(
+    "--rope_physx",
+    action="store_true",
+    help="シーン全体の PhysX 接触設定を、レーンごとの最も細いロープに合わせて"
+    " 縮小する (rope_cfg.make_rope_physx_cfg)。既定では off。",
+)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 
@@ -83,6 +89,7 @@ from isaaclab_tasks.manager_based.manipulation.parallel_gripper.gripper_cfg impo
 )
 from isaaclab_tasks.manager_based.manipulation.knot_tying.rope_model.rope_cfg import (  # noqa: E402
     make_rope_cfg,
+    make_rope_physx_cfg,
 )
 
 # ---------------------------------------------------------------- 配置・動作パラメータ
@@ -97,8 +104,12 @@ GRASP_PALM_Z = 0.077  # 指先が床上 0.002 m に来る把持高さ
 HOME_PALM_Z = 0.30    # 接近開始 / 退避の高さ
 CARRY_PALM_Z = 0.15   # 持ち上げ・搬送の高さ
 
-OPEN_RATIO = 0.8      # 接近/解放時の指の開き (0=全閉, 1=全開)
+OPEN_RATIO = 0.8      # 接近時の指の開き (0=全閉, 1=全開)
 CLOSE_RATIO = 0.0     # 把持時の指令 (全閉を指令し続けて押し付け力を出す)
+RELEASE_RATIO = 1.0
+"""離すときの指の開度 (0=全閉, 1=全開)。`rope_catch_demo.py` の同名定数と同じ理由
+(`OPEN_RATIO` までしか開かずに退避すると、指に残ったロープが持ち上がってくる)。
+"""
 
 GRASP_FRICTION = 4.0          # 指の当たり面の摩擦係数
 FINGER_DAMPING_RATIO = 0.04   # 指の damping / stiffness の比 (単体デモの 60/1500)
@@ -117,7 +128,9 @@ PHASES = [
     ("settle", 0.4),     # 接触の安定待ち
     ("lift", 1.2),       # 持ち上げ
     ("carry", 2.0),      # 搬送
-    ("release", 0.5),    # 解放
+    ("release", 0.5),    # 解放 (全開にする。RELEASE_RATIO の docstring 参照)
+    ("settle_out", 0.6),  # 全開のままその場で待つ
+    ("clear", 0.6),       # 横へ抜ける (真上へ上げる前にロープを指から外す)
     ("retreat", 0.8),    # 退避
     ("wait", 1.0),       # 落としたロープが落ち着くのを待つ
 ]
@@ -241,6 +254,18 @@ class RopeLane:
             CARRY_PALM_Z,
         ]
         retreat = [target[0], target[1], HOME_PALM_Z]
+        # 離した後、真上へ上げる前に **横へ抜ける** (搬送してきた向きへそのまま
+        # 数直径ぶん進む)。全開にしても、ロープが指の上に乗っていたりハンド
+        # 本体に掛かっていたりすると真上への退避で一緒に持ち上がってしまう
+        # ("くっつき" バグ。`RELEASE_RATIO` の docstring 参照)。
+        clear_dx, clear_dy = target[0] - lift[0], target[1] - lift[1]
+        clear_norm = math.hypot(clear_dx, clear_dy) or 1.0
+        clear_dist = 4.0 * self.spec.diameter
+        clear = [
+            target[0] + clear_dx / clear_norm * clear_dist,
+            target[1] + clear_dy / clear_norm * clear_dist,
+            CARRY_PALM_Z,
+        ]
 
         # (始点, 終点, 始点ヨー, 終点ヨー, 開始の指開度, 終了の指開度)
         # 尺は PHASES 側が持つので、ここでは持たない。
@@ -251,9 +276,11 @@ class RopeLane:
             (grasp, grasp, grasp_yaw, grasp_yaw, CLOSE_RATIO, CLOSE_RATIO),
             (grasp, lift, grasp_yaw, grasp_yaw, CLOSE_RATIO, CLOSE_RATIO),
             (lift, target, grasp_yaw, grasp_yaw, CLOSE_RATIO, CLOSE_RATIO),
-            (target, target, grasp_yaw, grasp_yaw, CLOSE_RATIO, OPEN_RATIO),
-            (target, retreat, grasp_yaw, grasp_yaw, OPEN_RATIO, OPEN_RATIO),
-            (retreat, retreat, grasp_yaw, grasp_yaw, OPEN_RATIO, OPEN_RATIO),
+            (target, target, grasp_yaw, grasp_yaw, CLOSE_RATIO, RELEASE_RATIO),
+            (target, target, grasp_yaw, grasp_yaw, RELEASE_RATIO, RELEASE_RATIO),
+            (target, clear, grasp_yaw, grasp_yaw, RELEASE_RATIO, RELEASE_RATIO),
+            (clear, retreat, grasp_yaw, grasp_yaw, RELEASE_RATIO, RELEASE_RATIO),
+            (retreat, retreat, grasp_yaw, grasp_yaw, RELEASE_RATIO, RELEASE_RATIO),
         ]
         self.cur_pos, self.cur_yaw = retreat, grasp_yaw
 
@@ -342,6 +369,13 @@ def main():
     print("=" * 78)
 
     sim_cfg = sim_utils.SimulationCfg(dt=SIM_DT, device=args_cli.device)
+    if args_cli.rope_physx:
+        # シーン全体の接触設定は 1 つしか持てないので、最も細い (=最も厳しい)
+        # レーンのロープ寸法を基準に縮小する。太いロープには過剰に小さい値に
+        # なるが、キャプスタン効果を壊す方向 (大きすぎる) よりは安全。
+        thinnest = min(specs, key=lambda s: s.diameter)
+        sim_cfg.physx = make_rope_physx_cfg(thinnest)
+        print(f"physx: ロープ寸法基準の接触設定を使う (基準={thinnest.name}, {sim_cfg.physx})")
     sim = SimulationContext(sim_cfg)
 
     n = len(specs)
