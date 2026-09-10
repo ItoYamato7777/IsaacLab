@@ -154,7 +154,7 @@ GRASP_PALM_Z = 0.077  # 指先が床上 0.002 m に来る把持高さ
 HOME_PALM_Z = 0.30
 CARRY_PALM_Z = 0.20
 
-OPEN_RATIO = 0.8
+OPEN_RATIO = 1.0
 CLOSE_RATIO = 0.0
 RELEASE_RATIO = 1.0
 """離すときの指の開度 (0=全閉, 1=全開)。接近時の `OPEN_RATIO` より広く開ける。

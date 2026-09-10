@@ -17,7 +17,7 @@ math のみ)。パッケージ自動インポート経路に乗っても軽い�
 |----------|------|-------------------------------|----------|--------------|-------------|----------|--------|
 | `simple` | 青   | 現行モデル (比較用ベースライン) | なし     | なし         | ロック      | 20       | 20 mm  |
 | `stiff`  | 緑   | 曲げ剛性を入れた「腰のある」縄 | あり     | ±60°         | ロック      | 20       | 20 mm  |
-| `twist`  | 橙   | `stiff` + 捩り自由度を解放     | あり     | ±60°         | 自由(低剛性) | 20       | 20 mm  |
+| `twist`  | 橙   | `stiff` より柔らかい曲げ剛性 (1/10) + 捩り自由度を解放 | あり(弱) | ±60°         | 自由(低剛性) | 20       | 20 mm  |
 | `fine`   | 赤   | 結び目が結べる細径・高分解能   | あり     | ±60°         | 自由(低剛性) | 48       | 8 mm   |
 
 色は `multi_rope_catch_demo.py` で 4 本を横並びにしたとき、どれがどの
@@ -92,6 +92,16 @@ ROPE_YOUNGS_MODULUS = 1.0e6
 3 桁以上小さい。0.1〜10 MPa が実測のおおよその範囲で、その中央付近を採用。
 この値だけで「ロープの腰の強さ」が決まるので、実物と合わせる際は
 まずここを調整する (後述の片持ち垂れ試験で同定する)。
+"""
+
+TWIST_YOUNGS_MODULUS = 1.0e5
+"""`twist` プリセット専用の、より柔らかい実効ヤング率 [Pa]。
+
+`stiff`/`fine` は `ROPE_YOUNGS_MODULUS` (1.0e6 Pa) を使うが、`twist` は
+グリッパーで挟んで運ぶ用途で使われるため、指を開いたときにロープの腰で
+引っかからないよう 1 桁下げて柔らかくしてある。曲げ剛性 EI はヤング率に
+比例するので、`ROPE_YOUNGS_MODULUS` の 1/10 で曲げ関節のばね定数も
+1/10 になる (角度制限や質量など幾何・慣性由来の量は変わらない)。
 """
 
 TORSION_TO_BENDING_RATIO = 0.5
@@ -423,12 +433,13 @@ _STIFF = _make_physical_spec(
 
 _TWIST = _make_physical_spec(
     name="twist",
-    description="stiff + 捩り (rotX) を解放。結び目のように捩れが発生する操作向け",
+    description="stiff より柔らかい曲げ剛性 + 捩り (rotX) を解放。グリッパー把持・運搬向け",
     color=(0.95, 0.50, 0.05),
     color_name="橙",
     num_links=20,
     capsule_radius=0.01,
     lock_twist=False,
+    youngs_modulus=TWIST_YOUNGS_MODULUS,
 )
 
 _FINE = _make_physical_spec(
